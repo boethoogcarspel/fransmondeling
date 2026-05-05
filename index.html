@@ -604,7 +604,12 @@
       .exam-q-row,.daily-goal-card,.home-profile,.sg-home-tile:not([style*="background"]),
       .listen-opt,.connector-row,.srs-card,.review-item,.offline-bar+.nav~.screen .btn-gray,
       .info-card,.sg-card,.write-fb,.tts-row,.chat-input-wrap,
-      .sync-code-pill,.chat-setup-card,.pcard{background:#1e293b;color:var(--text)}
+      .sync-code-pill,.chat-setup-card,.pcard,.tcard,.vcard,.progress-card,.cat-pill,
+      .quiz-q-card,.item-row,.group-card,.chat-header,.chat-typing,.due-list-item,
+      .practice-card,.write-q-card,.group-detail-header,.toggle-row,.group-phrase-row,
+      .search-result-card,.ps-card{background:#1e293b;color:var(--text)}
+      .cat-pill{border-color:#334155}
+      .cat-pill.started{border-color:var(--brand);color:var(--brand2)}
       .btn-gray{background:#1e293b;color:var(--text);border:1px solid #334155}
       .btn-brand-o{background:var(--brand-l);color:var(--brand2)}
       .btn-green-o{background:var(--green-p);color:#4ade80}
@@ -2456,6 +2461,7 @@ function createUser(){
   if(syncCode.length<3)syncCode=_genSyncCode();
   if(!pw)return showErr('Kies een wachtwoord.');
   if(!isPwValid(pw))return showErr('Het wachtwoord voldoet niet aan de eisen.');
+  if(db.users.some(u=>u.pwHash===hashPw(pw)))return showErr('Wachtwoord is al gekozen — kies een ander wachtwoord.');
   while(db.users.some(u=>u.syncCode===syncCode))syncCode=_genSyncCode();
   const id='u'+Date.now();
   const u={id,name,avatar:selectedAvatar,pwHash:hashPw(pw),syncCode};
