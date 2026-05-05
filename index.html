@@ -1377,6 +1377,7 @@
   <p style="font-size:12px;color:var(--gray);margin-bottom:10px">Scan de QR-code met je iPhone-camera — de app opent direct en logt automatisch in. Of kopieer de link en stuur hem naar jezelf.</p>
   <div id="profileSyncCode" style="margin-bottom:10px"></div>
   <button class="btn btn-brand-o" onclick="showQrModal()" style="margin-bottom:9px">📱 Toon QR-code / sync code</button>
+  <div id="chatKeyStatus" style="margin-bottom:4px"></div>
   <div id="hiddenCatsSection" style="display:none">
     <div class="sec">Verborgen kopjes</div>
     <div id="hiddenCatsList"></div>
@@ -3337,6 +3338,14 @@ function renderProfile(){
       scEl.innerHTML=`<div style="font-size:12px;color:var(--gray)">Dit account heeft nog geen persoonlijke code. Maak een nieuw account aan om cross-device te gebruiken.</div>`;
     }
   }
+  // Chatbot-sleutel status
+  const ckEl=document.getElementById('chatKeyStatus');
+  if(ckEl){
+    const k=getChatKey();
+    ckEl.innerHTML=k
+      ? `<div style="display:flex;align-items:center;gap:10px;background:var(--green-p);border-radius:var(--radius-sm);padding:10px 14px"><span style="font-size:16px">🤖</span><span style="flex:1;font-size:13px;font-weight:700;color:var(--green)">Chatbot-sleutel opgeslagen ✓</span><button onclick="if(confirm('Sleutel verwijderen?')){localStorage.removeItem('fr_chat_key');renderProfile();}" style="background:none;border:none;font-size:11px;color:var(--gray);cursor:pointer;font-family:inherit;text-decoration:underline">Wijzigen</button></div>`
+      : '';
+  }
   renderProfileGoalBtns();
   renderBadges();
   initNotifSettings();
@@ -5131,9 +5140,29 @@ db=loadDB();
     return;
   }
 
+  // Geen account + sync-code → direct verbinden zonder wachtwoord (vers apparaat)
+  if(syncParam&&db.users.length===0){
+    try{
+      const p=decodeSyncPayload(decodeURIComponent(syncParam));
+      if(p.n&&p.h){
+        const id='u'+Date.now();
+        const u={id,name:p.n,avatar:p.a||'🎓',pwHash:p.h,syncCode:p.sc||''};
+        db.users.push(u);saveDB(db);
+        const [c,pr,t,v,st,ld]=p.s||[0,0,0,0,0,''];
+        const newUd=loadUD(id);
+        newUd.stats={cards:c||0,pron:pr||0,trans:t||0,vocab:v||0,streak:st||0,lastDate:ld||''};
+        saveUD(id,newUd);
+        if(p.k)localStorage.setItem('fr_chat_key',p.k);
+        loginAs(id);
+        _syncOfflineBar();
+        document.body.style.visibility='visible';
+        return;
+      }
+    }catch(e){}
+  }
   // Niet ingelogd → toon loginscherm
   showScreen('screen-login','Welkom');
-  // Als er een sync-code in de URL zat, vul het importformulier voor
+  // Als er een sync-code in de URL zat, vul het importformulier voor (al accounts aanwezig)
   if(syncParam){
     const field=document.getElementById('importCodeField');
     if(field){
