@@ -5119,8 +5119,14 @@ function _getPronTrend(key){
 // ══ INIT ══════════════════════════════════════════════════════
 db=loadDB();
 (function(){
-  // Verwijder altijd ?sync= uit de URL zodat de app hem nooit hergebruikt
   const params=new URLSearchParams(window.location.search);
+  // ?wipe=true → wis alle data en herlaad
+  if(params.get('wipe')==='true'){
+    localStorage.clear();
+    window.location.replace(window.location.pathname);
+    return;
+  }
+  // Verwijder altijd ?sync= uit de URL zodat de app hem nooit hergebruikt
   const syncParam=params.get('sync');
   if(syncParam&&window.history&&window.history.replaceState){
     window.history.replaceState({},'',window.location.pathname);
