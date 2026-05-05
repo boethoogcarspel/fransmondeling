@@ -10,6 +10,15 @@
   <link rel="manifest" href="manifest.json"/>
   <title>Frans Oefenen</title>
   <script src="./qrcode.min.js"></script>
+  <script>
+    window.onerror=function(msg,src,line,col,err){
+      document.body.style.visibility='visible';
+      var d=document.getElementById('__err');
+      if(!d){d=document.createElement('div');d.id='__err';d.style.cssText='position:fixed;top:0;left:0;right:0;background:#dc2626;color:#fff;padding:14px;font-size:13px;z-index:9999;white-space:pre-wrap;font-family:monospace';document.body.appendChild(d);}
+      d.textContent='JS FOUT:\n'+msg+'\nRegel: '+line+'\nBestand: '+src;
+      return false;
+    };
+  </script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{visibility:hidden}
