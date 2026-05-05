@@ -1435,6 +1435,12 @@
   <div class="sec">Account</div>
   <button class="btn btn-gray" onclick="switchAccount()">🔄 Account wisselen</button>
   <button class="btn btn-red" onclick="deleteAccount()">🗑️ Account verwijderen</button>
+
+  <!-- ADMIN SECTIE — alleen zichtbaar voor Boethoogcarspel -->
+  <div id="adminSection" style="display:none">
+    <div class="sec">👑 Beheer — alle accounts</div>
+    <div id="adminUserList"></div>
+  </div>
 </div>
 
 <!-- CHAT MET MARIE -->
@@ -3362,6 +3368,32 @@ function renderProfile(){
   const sl=document.getElementById('ttsRateSlider');
   const lb=document.getElementById('ttsRateLabel');
   if(sl&&lb){const r=getTTSRate();sl.value=r;lb.textContent=r.toFixed(2)+'×';}
+  // Admin sectie
+  const isAdmin=u.name.toLowerCase()==='boethoogcarspel';
+  const adminSec=document.getElementById('adminSection');
+  const adminList=document.getElementById('adminUserList');
+  if(adminSec)adminSec.style.display=isAdmin?'':'none';
+  if(isAdmin&&adminList){
+    adminList.innerHTML='';
+    db.users.forEach(au=>{
+      const aud=loadUD(au.id);
+      const s=aud.stats||{};
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:12px;background:var(--gray-l);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:8px';
+      row.innerHTML=`
+        <div style="font-size:26px;flex-shrink:0">${au.photo?`<img src="${au.photo}" style="width:36px;height:36px;border-radius:50%;object-fit:cover">`:au.avatar||au.name[0]}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px">
+            ${au.name}${au.name.toLowerCase()==='boethoogcarspel'?'<span style="font-size:10px;background:var(--brand);color:#fff;padding:1px 7px;border-radius:10px">👑 admin</span>':''}
+          </div>
+          <div style="font-size:11px;color:var(--gray);margin-top:3px">
+            💬 ${s.cards||0} &nbsp;🎤 ${s.pron||0} &nbsp;🔄 ${s.trans||0} &nbsp;📝 ${s.vocab||0} &nbsp;🔥 ${s.streak||0}
+          </div>
+        </div>`;
+      adminList.appendChild(row);
+    });
+    if(!db.users.length)adminList.innerHTML='<div style="font-size:13px;color:var(--gray);text-align:center;padding:12px">Nog geen accounts.</div>';
+  }
 }
 
 // ══ CONVERSATION ══════════════════════════════════════════════
