@@ -1327,6 +1327,10 @@
     <div class="ac-sec-chip on" id="acSec_write" onclick="this.classList.toggle('on')">✍️ Schrijven</div>
     <div class="ac-sec-chip on" id="acSec_vocab" onclick="this.classList.toggle('on')">📝 Woorden</div>
   </div>
+  <div id="acGroupSection" style="display:none">
+    <div class="sec">Voeg ook toe aan groep (optioneel)</div>
+    <div id="acGroupPicker" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+  </div>
   <button class="btn btn-brand" onclick="saveAc()">💾 Onderwerp opslaan</button>
   <button class="btn btn-gray" onclick="goBack()">Annuleren</button>
 </div>
@@ -3711,8 +3715,27 @@ function saveAc(){
     if(idx>=0){ud.customCats[idx]={...ud.customCats[idx],name,icon,items,sections};saveUD(curId,ud);_acEditId=null;alert('✅ Onderwerp "'+name+'" bijgewerkt!');goBack();return;}
     _acEditId=null;
   }
-  ud.customCats.push({id:'cat'+Date.now(),name,icon,items,sections});
-  saveUD(curId,ud);alert('✅ Onderwerp "'+name+'" opgeslagen!');goBack();
+  const newCatId='cat'+Date.now();
+  ud.customCats.push({id:newCatId,name,icon,items,sections});
+  saveUD(curId,ud);
+  // Voeg items toe aan geselecteerde groep
+  const selChip=document.querySelector('#acGroupPicker .ac-sec-chip.on');
+  if(selChip){
+    const gid=selChip.dataset.gid;
+    const allGroups=loadGroups();
+    const g=allGroups.find(g=>g.id===gid);
+    if(g){
+      const u=db.users.find(u=>u.id===curId);
+      items.forEach(item=>{
+        if(!g.phrases.some(p=>p.fr===item.fr))
+          g.phrases.push({id:'p'+Date.now()+'_'+Math.random().toString(36).slice(2),fr:item.fr,nl:item.nl||'',addedBy:curId,addedByName:u?u.name:'?'});
+      });
+      saveGroups(allGroups);
+      alert('✅ Onderwerp "'+name+'" opgeslagen en '+items.length+' zin'+(items.length!==1?'nen':'')+' toegevoegd aan "'+g.name+'"!');
+      goBack();return;
+    }
+  }
+  alert('✅ Onderwerp "'+name+'" opgeslagen!');goBack();
 }
 
 // ══ QUIZ ══════════════════════════════════════════════════════
@@ -4595,6 +4618,27 @@ function _makeAcCard(fr,nl){
 }
 function initAddCat(){
   document.querySelectorAll('#acSecGrid .ac-sec-chip').forEach(c=>c.classList.add('on'));
+  // Groepskiezer vullen
+  const groups=myGroups();
+  const gpSec=document.getElementById('acGroupSection');
+  const gpPicker=document.getElementById('acGroupPicker');
+  if(gpSec&&gpPicker){
+    if(groups.length){
+      gpSec.style.display='';
+      gpPicker.innerHTML='';
+      groups.forEach(g=>{
+        const chip=document.createElement('div');
+        chip.className='ac-sec-chip';
+        chip.dataset.gid=g.id;
+        chip.textContent=(g.icon||'📚')+' '+g.name;
+        chip.onclick=()=>{
+          document.querySelectorAll('#acGroupPicker .ac-sec-chip').forEach(c=>c.classList.remove('on'));
+          chip.classList.toggle('on');
+        };
+        gpPicker.appendChild(chip);
+      });
+    }else{gpSec.style.display='none';}
+  }
   const list=document.getElementById('acItemsList');list.innerHTML='';
   if(_acEditId){
     const cat=(ud.customCats||[]).find(c=>c.id===_acEditId);
