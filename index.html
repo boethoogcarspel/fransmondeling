@@ -2145,7 +2145,7 @@ function updateNavAvatar(u){
 }
 
 // ══ CONSTANTS ═══════════════════════════════════════════════
-const PASS_THRESHOLD=95;
+const PASS_THRESHOLD=97;
 const MAX_ATTEMPTS=3;
 const WORD_MATCH_THRESHOLD=0.92;
 
@@ -3881,7 +3881,7 @@ function checkSpeech(warnId,micId){
 }
 function startRec(lang){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return;
-  recog=new SR();recog.lang=lang;recog.interimResults=false;recog.maxAlternatives=3;
+  recog=new SR();recog.lang=lang;recog.interimResults=false;recog.maxAlternatives=1;
   isRec=true;
   const mic=document.querySelector('.screen.active .mic-btn');
   const lbl=document.querySelector('.screen.active .mic-lbl');
@@ -3937,7 +3937,7 @@ function strictSim(heard,target){
   tw.forEach((tv,ti)=>{
     // Venster van ±2 posities rondom de verwachte positie
     const center=Math.round(ti*hw.length/tw.length);
-    const lo=Math.max(0,center-2),hi=Math.min(hw.length-1,center+2);
+    const lo=Math.max(0,center-1),hi=Math.min(hw.length-1,center+1);
     let bestScore=0,bestIdx=-1;
     for(let i=lo;i<=hi;i++){
       if(!usedH.has(i)){const s=strictWordSim(hw[i],tv);if(s>bestScore){bestScore=s;bestIdx=i;}}
