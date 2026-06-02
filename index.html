@@ -648,6 +648,8 @@
       .session-len-chip{background:#1e293b;border-color:#334155;color:var(--gray)}
       .session-len-chip.on{background:var(--brand-l);border-color:var(--brand);color:var(--brand2)}
       .prog-chart-card{background:#1e293b;color:var(--text)}
+      .hidden-cat-row{background:#1e293b!important;color:var(--text)!important}
+      .hidden-cat-row span{color:var(--text)!important}
     }
     /* ── Chat score modal ── */
     .chat-score-modal{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center}
@@ -3381,8 +3383,9 @@ function renderProfile(){
     hidden.forEach(key=>{
       const c=allCats[key];if(!c)return;
       const row=document.createElement('div');
-      row.style.cssText='display:flex;align-items:center;gap:10px;background:#fff;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:8px;box-shadow:var(--shadow)';
-      row.innerHTML=`<span style="font-size:20px">${c.icon}</span><span style="flex:1;font-size:14px;font-weight:600">${c.label}</span><button onclick="restoreBuiltinCat('${key}')" style="background:var(--brand-l);color:var(--brand);border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">↩ Herstel</button>`;
+      row.className='hidden-cat-row';
+      row.style.cssText='display:flex;align-items:center;gap:10px;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:8px;box-shadow:var(--shadow);background:#fff;color:var(--text)';
+      row.innerHTML=`<span style="font-size:20px">${c.icon}</span><span style="flex:1;font-size:14px;font-weight:600;color:var(--text)">${c.label}</span><button onclick="restoreBuiltinCat('${key}')" style="background:var(--brand-l);color:var(--brand);border:none;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0">↩ Herstel</button>`;
       hiddenList.appendChild(row);
     });
   }else if(hiddenSec){hiddenSec.style.display='none';}
