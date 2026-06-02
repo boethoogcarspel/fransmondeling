@@ -1395,6 +1395,7 @@
   <div id="chatKeyStatus" style="margin-bottom:4px"></div>
   <div id="hiddenCatsSection" style="display:none">
     <div class="sec">Verborgen kopjes</div>
+    <p style="font-size:12px;color:var(--gray);margin-bottom:10px">Tik op ↩ Herstel om een kopje weer zichtbaar te maken bij de oefeningen.</p>
     <div id="hiddenCatsList"></div>
   </div>
   <div class="sec">Dagelijks doel</div>
@@ -2154,7 +2155,9 @@ function loadDB(){return JSON.parse(localStorage.getItem('fr_db')||'{"users":[],
 function saveDB(d){localStorage.setItem('fr_db',JSON.stringify(d))}
 function loadUD(id){
   const raw=localStorage.getItem('fr_ud_'+id);
-  const d=raw?JSON.parse(raw):{stats:{cards:0,pron:0,trans:0,vocab:0,streak:0,lastDate:''},customCats:[],deletedBuiltin:{},catAdditions:{}};
+  // Nieuwe gebruiker: alle ingebouwde categorieën standaard verborgen
+  const allBuiltinKeys=()=>[...Object.keys(PHRASES),...Object.keys(VOCAB)];
+  const d=raw?JSON.parse(raw):{stats:{cards:0,pron:0,trans:0,vocab:0,streak:0,lastDate:''},customCats:[],deletedBuiltin:{},catAdditions:{},hiddenBuiltinCats:allBuiltinKeys()};
   if(!d.customCats)d.customCats=[];
   if(!d.deletedBuiltin)d.deletedBuiltin={};
   if(!d.catAdditions)d.catAdditions={};
