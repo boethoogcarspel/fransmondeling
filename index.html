@@ -1781,6 +1781,23 @@ const PHRASES={
     {fr:"Quelle est la date limite ?",nl:"Wat is de deadline?"},
     {fr:"Peut-on travailler en groupe ?",nl:"Mogen we in groep werken?"},
   ]},
+  sollicitatie:{label:"Sollicitatiegesprek",icon:"👨‍🍳",phrases:[
+    {fr:"Je postule pour le poste en cuisine.",nl:"Ik solliciteer naar de functie in de keuken.",ctx:"Openingszin"},
+    {fr:"J'ai déjà de l'expérience dans la restauration.",nl:"Ik heb al ervaring in de horeca.",ctx:"Ervaring"},
+    {fr:"J'ai travaillé deux ans dans la restauration.",nl:"Ik heb twee jaar in de horeca gewerkt.",ctx:"Ervaring"},
+    {fr:"Ils m'ont beaucoup appris.",nl:"Ze hebben me veel geleerd.",ctx:"Over je werkgevers"},
+    {fr:"Je suis passionné par la cuisine.",nl:"Ik ben gepassioneerd door koken.",ctx:"Motivatie"},
+    {fr:"Je suis très sociable et j'aime travailler en équipe.",nl:"Ik ben erg sociaal en ik werk graag in een team.",ctx:"Kwaliteiten"},
+    {fr:"Je parle couramment le néerlandais et l'anglais.",nl:"Ik spreek vloeiend Nederlands en Engels.",ctx:"Talen"},
+    {fr:"Je parle un peu le français.",nl:"Ik spreek een beetje Frans.",ctx:"Talen"},
+    {fr:"Je suis disponible à partir du 15 juillet.",nl:"Ik ben beschikbaar vanaf 15 juli.",ctx:"Beschikbaarheid"},
+    {fr:"Je vous remercie d'avance pour votre réponse.",nl:"Ik dank u alvast voor uw antwoord.",ctx:"Afsluiting"},
+    {fr:"Pourquoi voulez-vous travailler ici ?",nl:"Waarom wilt u hier werken?",ctx:"Vraag van de chef"},
+    {fr:"Quelles sont vos qualités ?",nl:"Wat zijn uw kwaliteiten?",ctx:"Vraag van de chef"},
+    {fr:"Avez-vous déjà travaillé en cuisine professionnelle ?",nl:"Heeft u al in een professionele keuken gewerkt?",ctx:"Vraag van de chef"},
+    {fr:"Quand pouvez-vous commencer ?",nl:"Wanneer kunt u beginnen?",ctx:"Vraag van de chef"},
+    {fr:"Avez-vous des questions pour moi ?",nl:"Heeft u nog vragen voor mij?",ctx:"Afsluiting gesprek"},
+  ]},
   gevoelens:{label:"Gevoelens & Meningen",icon:"💭",phrases:[
     {fr:"Je suis d'accord avec toi.",nl:"Ik ben het met je eens."},
     {fr:"Je ne suis pas d'accord.",nl:"Ik ben het er niet mee eens."},
@@ -2079,6 +2096,8 @@ const SCENARIOS=[
    prompt:'Je bent een Franse hotelreceptionist. De gast checkt in of meldt een probleem. Vraag naar naam, reserveringsnummer en kamervoorkeur. Reageer ALTIJD in het Frans, max 2 zinnen.'},
   {id:'telefoon',icon:'📞',label:'Telefoongesprek',desc:'Bellen naar een Frans bedrijf of vriend.',
    prompt:'Je bent een Frans persoon die een telefoontje ontvangt. Reageer zoals in een echt gesprek: "Allô ?" of "C\'est de la part de qui ?". Blijf in het Frans, max 2 zinnen.'},
+  {id:'sollicitatie',icon:'👨‍🍳',label:'Sollicitatiegesprek restaurant',desc:'Oefen je sollicitatiegesprek voor een baan in de keuken.',
+   prompt:'Je bent de chef-kok of manager van een Frans restaurant die een sollicitatiegesprek voert. De kandidaat solliciteert naar een functie in de keuken. Stel realistische vragen: naar motivatie, ervaring, beschikbaarheid, talen en sterke punten. Als de kandidaat iets zegt dat grammaticaal fout is, geef dan kort de correcte versie tussen haakjes. Begin het gesprek met een formele begroeting en stel jezelf voor. Reageer ALTIJD in het Frans, max 2 zinnen.'},
 ];
 
 // ── SIMPLE HASH (djb2, not cryptographic — sufficient for local use) ──
