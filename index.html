@@ -1080,8 +1080,8 @@
   <p style="font-size:11px;color:var(--gray);margin-bottom:14px">Stuur de link naar klasgenoten — ze joinen automatisch na het inloggen.</p>
 
   <!-- Leden -->
-  <div class="sec">Leden</div>
-  <div class="members-row" id="gdMembers"></div>
+  <div class="sec-hdr"><span class="sec">Leden</span><span id="gdMemberCount" style="font-size:11px;color:var(--gray)"></span></div>
+  <div id="gdMembers"></div>
   <button class="btn btn-gray btn-sm" id="gdLeaveBtn" onclick="leaveGroup()" style="margin-top:10px;margin-bottom:14px">🚪 Groep verlaten</button>
 
   <!-- Zinnen -->
@@ -1579,6 +1579,10 @@
     <div class="chat-score-verdict" id="chatScoreVerdict"></div>
     <div class="chat-score-label" id="chatScoreLabel"></div>
     <div class="chat-score-sub-grid" id="chatScoreSubGrid"></div>
+    <div id="chatScoreCalcWrap" style="display:none;margin-bottom:14px">
+      <div style="font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px">📐 Berekening</div>
+      <div id="chatScoreCalc" style="font-size:12px;color:var(--text);background:var(--gray-l);border-radius:8px;padding:8px 10px;line-height:1.6"></div>
+    </div>
     <div class="chat-score-sec">Algemene feedback</div>
     <div id="chatScoreFbList"></div>
     <div id="chatScoreMistakesWrap" style="display:none">
@@ -2290,33 +2294,31 @@ function renderGroupDetail(){
 
   // Leden
   const membersEl=document.getElementById('gdMembers');
+  const memberCountEl=document.getElementById('gdMemberCount');
+  if(memberCountEl)memberCountEl.textContent=g.members.length+' lid'+(g.members.length!==1?'en':'');
   if(membersEl){
     membersEl.innerHTML='';
     g.members.forEach(m=>{
       const isSelf=m.id===curId;
+      const isOwner2=m.id===g.ownerId;
       const already=isFriend(m.id);
-      const chip=document.createElement('div');
-      chip.className='member-chip'+(m.id===g.ownerId?' owner':'');
-      chip.style.cssText='cursor:pointer;transition:transform .12s';
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;gap:12px;background:var(--gray-l);border-radius:var(--radius-sm);padding:11px 14px;margin-bottom:8px';
       const avHtml=m.photo
-        ?`<div class="member-chip-av"><img src="${m.photo}"></div>`
-        :`<div class="member-chip-av">${m.avatar||m.name[0]}</div>`;
-      chip.innerHTML=`${avHtml}<span>${_esc(m.name)}${m.id===g.ownerId?' 👑':''}</span>`;
+        ?`<img src="${m.photo}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0">`
+        :`<div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${m.avatar||m.name[0]}</div>`;
+      const badge=isOwner2
+        ?'<span style="font-size:10px;background:var(--brand);color:#fff;padding:1px 7px;border-radius:10px;margin-left:5px">👑 eigenaar</span>'
+        :(isSelf?'<span style="font-size:10px;background:var(--green-p);color:var(--green);padding:1px 7px;border-radius:10px;margin-left:5px">jij</span>':'');
+      row.innerHTML=`${avHtml}<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--text)">${_esc(m.name)}${badge}</div></div>`;
       if(!isSelf){
-        if(already){
-          const fb=document.createElement('button');
-          fb.className='friend-add-btn added';fb.textContent='✓ Vriend';
-          fb.onclick=e=>{e.stopPropagation();showFriendProfile(m.id);};
-          chip.appendChild(fb);
-          chip.onclick=()=>showFriendProfile(m.id);
-        }else{
-          const fb=document.createElement('button');
-          fb.className='friend-add-btn';fb.textContent='＋ Bevriend';
-          fb.onclick=e=>{e.stopPropagation();addFriend(m);};
-          chip.appendChild(fb);
-        }
+        const fb=document.createElement('button');
+        fb.style.cssText='border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0';
+        if(already){fb.style.background='var(--green-p)';fb.style.color='var(--green)';fb.textContent='✓ Vriend';fb.onclick=()=>showFriendProfile(m.id);}
+        else{fb.style.background='var(--brand-l)';fb.style.color='var(--brand)';fb.textContent='＋ Bevriend';fb.onclick=()=>addFriend(m);}
+        row.appendChild(fb);
       }
-      membersEl.appendChild(chip);
+      membersEl.appendChild(row);
     });
   }
 
@@ -4407,24 +4409,26 @@ async function rateChatConversation(){
     const key=getChatKey();if(!key)throw new Error('Geen API-key ingesteld.');
     const _rl=getCurrentLang();
     const convo=_chatHistory.map(m=>(m.role==='user'?'Leerling':_rl.partner)+': '+m.content).join('\n');
-    const prompt=`You are a strict but fair ${_rl.aiLang} language examiner evaluating a Dutch learner's ${_rl.aiLang} conversation. Score on a scale of 0.0–10.0 (one decimal). A 5.5 is passing. Be strict — average performance scores 5–6, not 7–8.
+    const prompt=`You are a strict French examiner grading a Dutch VWO 5 student (B2 level). Score on a scale of 0.0–10.0 (one decimal). Calibration: a 5.5 is barely passing, a 6.5 is average VWO 5 performance, an 8+ means excellent B2 command. Be strict — most students score between 5 and 7.
 
-Score each criterion from 0.0–10.0:
-1. grammar (25%): verb conjugations, tense usage, sentence structure, agreement
-2. vocabulary (20%): range, appropriateness, avoiding repetition
-3. fluency (20%): sentence length and complexity, use of connectors
-4. communication (20%): answers questions fully and relevantly, stays on topic
-5. lang_usage (15%): actually writes in ${_rl.aiLang} (penalize Dutch words heavily)
+Criteria (do NOT include fluency):
+1. grammar (30%): verb conjugations, tense usage (passé composé, imparfait, subjonctif if applicable), sentence structure, gender/number agreement
+2. vocabulary (25%): range and precision, B2-level vocabulary, avoiding repetition, use of connectors (car, donc, cependant, etc.)
+3. communication (25%): answers questions fully, stays on topic, expresses nuanced ideas
+4. lang_usage (20%): writes in French throughout; heavy penalty for Dutch words or sentences
 
-The overall "score" must be the weighted average of these five.
+The overall "score" must be: grammar*0.30 + vocabulary*0.25 + communication*0.25 + lang_usage*0.20 (rounded to 1 decimal).
 
-Also identify up to 3 specific mistakes the learner made. For each mistake, quote the exact wrong sentence/phrase and give the corrected version.
+Also provide in Dutch:
+- "calculation": one sentence explaining how the grade was calculated, e.g. "Grammatica (6.0×0.30) + Woordenschat (7.0×0.25) + Communicatie (6.5×0.25) + Frans gebruik (8.0×0.20) = 6.7"
+- Up to 3 specific mistakes with exact wrong quote and correct version
+- A short improvement tip in Dutch
 
-Conversation to evaluate:
+Conversation:
 ${convo}
 
-Respond ONLY with valid JSON, no text outside it:
-{"score":6.5,"verdict":"Goed geprobeerd!","subscores":{"grammar":6.0,"vocabulary":7.0,"fluency":5.5,"communication":7.5,"lang_usage":9.0},"feedback":["Feedback punt 1","Feedback punt 2","Feedback punt 3"],"mistakes":[{"wrong":"fout zinsdeel","right":"correct","explanation":"Uitleg hier."}],"tip":"Tip om te verbeteren."}`;
+Respond ONLY with valid JSON:
+{"score":6.5,"verdict":"Goed geprobeerd!","subscores":{"grammar":6.0,"vocabulary":7.0,"communication":6.5,"lang_usage":8.0},"calculation":"Grammatica (6.0×0.30=1.80) + Woordenschat (7.0×0.25=1.75) + Communicatie (6.5×0.25=1.63) + Frans gebruik (8.0×0.20=1.60) = 6.8","feedback":["Feedback punt 1","Feedback punt 2"],"mistakes":[{"wrong":"fout zinsdeel","right":"correct","explanation":"Uitleg."}],"tip":"Verbeter dit door..."}` ;
     const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST',
       headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json'},
@@ -4451,11 +4455,10 @@ function showChatScore(r){
   // Subscores
   const subGrid=document.getElementById('chatScoreSubGrid');subGrid.innerHTML='';
   const subDefs=[
-    {key:'grammar',label:'Grammatica'},
-    {key:'vocabulary',label:'Woordenschat'},
-    {key:'fluency',label:'Vlotheid'},
-    {key:'communication',label:'Communicatie'},
-    {key:'lang_usage',label:getCurrentLang().name+' gebruik'}
+    {key:'grammar',label:'Grammatica (30%)'},
+    {key:'vocabulary',label:'Woordenschat (25%)'},
+    {key:'communication',label:'Communicatie (25%)'},
+    {key:'lang_usage',label:'Frans gebruik (20%)'}
   ];
   const ss=r.subscores||{};
   subDefs.forEach(def=>{
@@ -4490,6 +4493,11 @@ function showChatScore(r){
     });
     mw.style.display='block';
   }else{mw.style.display='none';}
+  // Berekening
+  const calcWrap=document.getElementById('chatScoreCalcWrap');
+  const calcEl=document.getElementById('chatScoreCalc');
+  if(r.calculation&&calcWrap&&calcEl){calcEl.textContent=r.calculation;calcWrap.style.display='block';}
+  else if(calcWrap)calcWrap.style.display='none';
   // Tip
   const tw=document.getElementById('chatScoreTipWrap');
   const tip=document.getElementById('chatScoreTip');
