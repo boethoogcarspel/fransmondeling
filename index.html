@@ -1090,6 +1090,7 @@
 
   <!-- Zin toevoegen -->
   <button class="sg-add-btn" id="gdAddBtn" onclick="showAddGdCard()">＋ Zin toevoegen</button>
+  <button class="btn btn-brand-o" onclick="importGroupAsCat()" style="margin-top:4px">📥 Overnemen als eigen categorie</button>
 </div>
 
 <!-- CONV CATS -->
@@ -1312,6 +1313,7 @@
   </div>
   <div id="manageList"></div>
   <button class="sg-add-btn" id="mgAddBtn" onclick="showAddMgCard()" style="margin-top:14px">＋ Zin toevoegen</button>
+  <button class="btn btn-brand-o" id="mgAddToGroupBtn" onclick="addCatToGroup()" style="margin-top:6px">📤 Zet dit onderwerp in een groep</button>
   <div class="sec">Gedeelde zinnen van andere gebruikers</div>
   <div id="communityList"></div>
 </div>
@@ -1549,6 +1551,7 @@
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
       <button class="chat-send-btn" id="chatSendBtn" onclick="sendChat()">↑</button>
     </div>
+    <button id="chatEndBtn" onclick="endChatAndScore()" style="display:none;width:100%;margin-top:8px;padding:11px;border:none;border-radius:var(--radius);background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🎓 Gesprek afronden & beoordelen</button>
 
     <div style="margin-top:10px;background:var(--bg);border-radius:var(--radius-sm);padding:12px 14px;border:1px solid var(--gray-b)">
       <div style="font-size:12px;font-weight:700;color:var(--brand);margin-bottom:8px">💡 Hoe gebruik je de chat?</div>
@@ -2803,7 +2806,11 @@ let mgCatKey='',mgCatType=''; // type: 'conv'|'vocab'
 
 function openManage(catKey,catType,catLabel){
   mgCatKey=catKey;mgCatType=catType;
+  _manageCatKey=catKey;_manageCatType=catType;
   document.getElementById('manageCatInfo').innerHTML='<strong>'+_esc(catLabel)+'</strong> — Beheer zinnen in deze categorie. Verwijderde zinnen zijn alleen voor jou verborgen.';
+  // Toon "Zet in groep" knop alleen als er groepen zijn
+  const mgGrpBtn=document.getElementById('mgAddToGroupBtn');
+  if(mgGrpBtn)mgGrpBtn.style.display=myGroups().length?'flex':'none';
   renderManageList();
   showScreen('screen-manage','✏️ '+catLabel);
 }
@@ -4178,6 +4185,62 @@ function speak(text){
   window.speechSynthesis.speak(u);
 }
 
+// ══ GROEP HULPFUNCTIES ══════════════════════════════════════
+let _manageCatKey=null,_manageCatType=null;
+
+function addCatToGroup(){
+  const groups=myGroups();
+  if(!groups.length){showToast('Je zit nog in geen groep. Maak eerst een groep aan of join er een.');return;}
+  // Haal huidige categorie-items op
+  let items=[];
+  if(_manageCatKey){
+    const isBuiltin=!!PHRASES[_manageCatKey]||!!VOCAB[_manageCatKey];
+    if(isBuiltin){
+      const cat=PHRASES[_manageCatKey]||VOCAB[_manageCatKey];
+      items=(cat.items||cat.phrases||[]);
+    } else {
+      const cat=(ud.customCats||[]).find(c=>c.id===_manageCatKey);
+      items=cat?cat.items||[]:[];
+    }
+  }
+  if(!items.length){showToast('Dit onderwerp heeft nog geen zinnen.');return;}
+  // Toon groepkiezer
+  const names=groups.map((g,i)=>(i+1)+'. '+g.name).join('\n');
+  const idx=parseInt(prompt('In welke groep wil je de zinnen zetten?\n\n'+names+'\n\nVoer het nummer in:'));
+  if(!idx||idx<1||idx>groups.length)return;
+  const g=loadGroups().find(gr=>gr.id===groups[idx-1].id);
+  if(!g)return;
+  let added=0;
+  items.forEach(item=>{
+    if(!item.fr)return;
+    const exists=g.phrases.some(p=>p.fr===item.fr);
+    if(!exists){
+      g.phrases.push({id:'p'+Math.random().toString(36).slice(2),fr:item.fr,nl:item.nl||'',addedBy:curId,addedByName:(db.users.find(u=>u.id===curId)||{}).name||'?'});
+      added++;
+    }
+  });
+  saveGroups(loadGroups().map(gr=>gr.id===g.id?g:gr));
+  showToast('✅ '+added+' zin'+(added!==1?'nen':'')+" toegevoegd aan '"+g.name+"'!");
+}
+
+function importGroupAsCat(){
+  const groups=loadGroups();
+  const g=groups.find(gr=>gr.id===activeGroupId);
+  if(!g||!g.phrases.length){showToast('Deze groep heeft nog geen zinnen.');return;}
+  const name=g.name;
+  const existing=(ud.customCats||[]).find(c=>c.name===name);
+  if(existing){
+    if(!confirm('Je hebt al een categorie "'+name+'". Overschrijven?'))return;
+    existing.items=g.phrases.map(p=>({fr:p.fr,nl:p.nl||''}));
+    saveUD(curId,ud);showToast('✅ Categorie "'+name+'" bijgewerkt!');return;
+  }
+  if(!ud.customCats)ud.customCats=[];
+  ud.customCats.push({id:'g'+Date.now(),name,icon:g.icon||'📚',items:g.phrases.map(p=>({fr:p.fr,nl:p.nl||''})),sections:['conv','pron','trans','write','vocab']});
+  // Zorg dat categorie zichtbaar is (uit hiddenBuiltinCats verwijderen hoeft niet — dit is custom)
+  saveUD(curId,ud);
+  showToast('✅ "'+name+'" overgenomen als eigen categorie! Je kunt er nu mee oefenen.');
+}
+
 // ══ CHATBOT ══════════════════════════════════════════════════
 const CHAT_STARTERS=[
   'Bonjour ! Comment tu t\'appelles ?',
@@ -4267,6 +4330,7 @@ async function sendChat(){
   document.getElementById('chatStarters').style.display='none';
   document.getElementById('chatSendBtn').disabled=true;
   _chatHistory.push({role:'user',content:text});
+  _updateChatEndBtn();
   _renderUserMsg(text);
   _showTyping(true);
   try{
@@ -4322,6 +4386,16 @@ function clearChat(){
   document.getElementById('navTitle').textContent='🤖 Chat met '+getCurrentLang().partner;
   _showTyping(false);
   _renderChatStarters();
+  _updateChatEndBtn();
+}
+function _updateChatEndBtn(){
+  const btn=document.getElementById('chatEndBtn');
+  if(!btn)return;
+  const userMsgs=_chatHistory.filter(m=>m.role==='user');
+  btn.style.display=userMsgs.length>=3?'block':'none';
+}
+async function endChatAndScore(){
+  await rateChatConversation();
 }
 
 async function rateChatConversation(){
