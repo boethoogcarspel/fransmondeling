@@ -216,7 +216,7 @@
     .chip{padding:3px 8px;border-radius:7px;font-size:12px;font-weight:600}
     .chip.c{background:#bbf7d0;color:var(--green)}.chip.m{background:#fecaca;color:var(--red)}
     .fb-missed{font-size:12px;font-weight:600;color:var(--red);margin-bottom:6px}
-    .fb-tip{font-size:12px;color:#374151;background:rgba(255,255,255,.6);border-radius:8px;padding:8px 10px;margin-top:8px;display:none}
+    .fb-tip{font-size:12px;color:var(--text);background:rgba(255,255,255,.6);border-radius:8px;padding:10px 12px;margin-top:8px;display:none;line-height:1.6}
     .fb-tip strong{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;opacity:.7}
 
     /* ── QUIZ ── */
@@ -1921,6 +1921,32 @@ const SOUND_RULES=[
   {t:fr=>/r/i.test(fr),            tip:'De Franse "r" is een keelklank — maak het geluid achterin je keel, als een zachte "g".'},
 ];
 function getSoundTip(fr){for(const r of SOUND_RULES)if(r.t(fr))return r.tip;return null;}
+function getAllSoundTips(fr){return SOUND_RULES.filter(r=>r.t(fr)).map(r=>r.tip);}
+
+// Frans → Nederlandse uitspraakbenadering (fonetisch)
+function frToPhonetic(w){
+  return w.toLowerCase()
+    // Langere patronen eerst
+    .replace(/eau/g,'o').replace(/au/g,'o')
+    .replace(/ouille/g,'oej').replace(/aille/g,'aj').replace(/eille/g,'ej')
+    .replace(/ille/g,'ij').replace(/eil/g,'ej').replace(/ail/g,'aj')
+    .replace(/oui/g,'wi').replace(/ou/g,'oe').replace(/oi/g,'wa')
+    .replace(/ch/g,'sj').replace(/ph/g,'f').replace(/gn/g,'nj')
+    .replace(/qu/g,'k').replace(/c(?=[eéèêiy])/g,'s').replace(/ç/g,'s')
+    .replace(/g(?=[eéèêiy])/g,'zj').replace(/j/g,'zj')
+    .replace(/é/g,'ee').replace(/[èê]/g,'e').replace(/â/g,'a')
+    .replace(/[îï]/g,'ie').replace(/û/g,'uu').replace(/ô/g,'o').replace(/à/g,'a')
+    // Neusklanken
+    .replace(/ain|aim|ein|eim/g,'an')
+    .replace(/in(?![aeiou]|$)/g,'an').replace(/im(?![aeiou]|$)/g,'an')
+    .replace(/an(?![aeiou])/g,'an').replace(/am(?![aeiou])/g,'an')
+    .replace(/en(?![aeiou])/g,'an').replace(/em(?![aeiou])/g,'an')
+    .replace(/on(?![aeiou])/g,'on').replace(/om(?![aeiou])/g,'on')
+    // Stomme eindmedeklinkers
+    .replace(/[szxdt]$/g,'').replace(/er$/g,'ee')
+    // Franse r → keelklank (g)
+    .replace(/r/g,'g').replace(/th/g,'t');
+}
 
 const AVATARS=['🎓','🦊','🐬','🌟','🎵','🦋','🐯','🌈','🎨','🏆','🦁','🐙'];
 const LANGUAGES=[
@@ -3996,9 +4022,31 @@ function renderFb(fbId,verdictId,scoreId,barId,heardId,chipsId,missedId,tipId,ti
     if(missedId){const m=document.getElementById(missedId);m.textContent=missed.length&&score<PASS_THRESHOLD?'Gemist: '+missed.join(', '):'';m.style.display=missed.length&&score<PASS_THRESHOLD?'block':'none';}
   }
   if(tipId&&score<PASS_THRESHOLD){
-    const tip=getSoundTip(targetFr);
-    const el=document.getElementById(tipId);el.style.display=tip?'block':'none';
-    if(tip)document.getElementById(tipTextId).textContent=tip;
+    const el=document.getElementById(tipId);
+    // Bouw rijke feedbackinhoud
+    const tw=normalize(targetFr).split(' ').filter(Boolean);
+    const hw=normalize(text||'').split(' ');
+    const missedWords=tw.filter(w=>!hw.some(h=>strictWordSim(h,w)>=WORD_MATCH_THRESHOLD));
+    let html='';
+    if(missedWords.length){
+      html+='<div style="margin-bottom:6px"><strong style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.7">🔤 Zo spreek je het uit</strong></div>';
+      missedWords.forEach(w=>{
+        const phonetic=frToPhonetic(w);
+        html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+          <span style="font-weight:700;color:var(--red)">${w}</span>
+          <span style="opacity:.5">→</span>
+          <span style="font-style:italic;color:var(--brand);font-weight:600">${phonetic}</span>
+        </div>`;
+      });
+    }
+    // Alle toepasselijke uitspraakregels
+    const tips=getAllSoundTips(targetFr);
+    if(tips.length){
+      html+=`<div style="margin-top:${missedWords.length?'8':'0'}px"><strong style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;opacity:.7">💡 Regels</strong></div>`;
+      tips.forEach(t=>{html+=`<div style="margin-top:4px;font-size:12px">• ${t}</div>`;});
+    }
+    el.style.display=html?'block':'none';
+    el.innerHTML=html?`<div>${html}</div>`:'';
   } else if(tipId){document.getElementById(tipId).style.display='none';}
 }
 function clearFb(id){const el=document.getElementById(id);el.classList.remove('on','good','ok','bad');}
