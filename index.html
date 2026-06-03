@@ -1175,7 +1175,7 @@
     <button class="btn btn-gray" onclick="pronPrev()">← Vorige</button>
     <button class="btn btn-green" id="pronNextBtn" onclick="pronNext()" style="display:none">Volgende →</button>
   </div>
-  <button class="btn btn-gray btn-sm" id="pronSkipBtn" onclick="pronSkip()" style="display:none">Toch verder → (na 3 pogingen)</button>
+  <button class="btn btn-gray btn-sm" id="pronSkipBtn" onclick="pronSkip()">⏭ Sla over</button>
 </div>
 
 <!-- TRANS CATS -->
@@ -3580,7 +3580,7 @@ function renderPronCard(){
   document.getElementById('pronPassBanner').classList.remove('on');
   document.getElementById('pronAttNote').classList.remove('on');
   document.getElementById('pronNextBtn').style.display='none';
-  document.getElementById('pronSkipBtn').style.display='none';
+  // pronSkipBtn altijd zichtbaar
   const t=pronPhrases.length;
   document.getElementById('pronCtr').textContent='Oefening '+(pronIdx+1)+' / '+t;
   document.getElementById('pronProg').style.width=(((pronIdx+1)/t)*100)+'%';
@@ -3610,13 +3610,13 @@ function togglePronRec(){
       document.getElementById('pronPassBanner').classList.add('on');
       document.getElementById('pronLbl').textContent='🎉 Parfait!';
       document.getElementById('pronNextBtn').style.display='flex';
-      document.getElementById('pronSkipBtn').style.display='none';
+      // pronSkipBtn altijd zichtbaar
     } else {
       pronPassed[pronIdx]=false;
       const att=pronAttempts[pronIdx],note=document.getElementById('pronAttNote');
       if(att>=MAX_ATTEMPTS){
         updateSRS(pronPhrases[pronIdx].fr,pronPhrases[pronIdx].nl||'',false);
-        note.textContent='Na '+att+' pogingen kun je ook overslaan.';note.classList.add('on');document.getElementById('pronSkipBtn').style.display='flex';
+        note.textContent='Na '+att+' pogingen — tik "Sla over" om door te gaan.';note.classList.add('on');
       }else{note.textContent='Poging '+att+'/'+MAX_ATTEMPTS+' — probeer opnieuw.';note.classList.add('on');}
     }
   };

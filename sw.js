@@ -1,4 +1,4 @@
-const CACHE = 'fr-app-v11';
+const CACHE = 'fr-app-v12';
 const PRECACHE = [
   './',
   './index.html',
