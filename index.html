@@ -1075,9 +1075,10 @@
   </div>
 
   <!-- Deelcode -->
-  <div class="sec">Deelcode</div>
-  <div class="code-box"><span class="code-box-val" id="gdCode">——</span><button class="code-copy-btn" onclick="copyGroupCode()">Kopiëren</button></div>
-  <p style="font-size:11px;color:var(--gray);margin-bottom:14px">Deel deze code zodat anderen kunnen joinen via 'Groep zoeken'.</p>
+  <div class="sec">Uitnodiging</div>
+  <div class="code-box"><span class="code-box-val" id="gdCode">——</span><button class="code-copy-btn" onclick="copyGroupCode()">📋 Code</button></div>
+  <button class="btn btn-brand" onclick="shareGroupLink()" style="margin-top:8px;margin-bottom:4px">🔗 Kopieer uitnodigingslink</button>
+  <p style="font-size:11px;color:var(--gray);margin-bottom:14px">Stuur de link naar klasgenoten — ze joinen automatisch na het inloggen.</p>
 
   <!-- Leden -->
   <div class="sec">Leden</div>
@@ -2357,9 +2358,17 @@ function toggleGroupPublic(){
 function copyGroupCode(){
   const g=loadGroups().find(g=>g.id===activeGroupId);
   if(!g)return;
-  const text='Doe mee met mijn Frans-groep "'+g.name+'"! Code: '+g.code;
-  if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>alert('Code gekopieerd!'));
-  else{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);alert('Code gekopieerd!');}
+  const _copy=t=>{if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>showToast('📋 Code gekopieerd!'));else{const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showToast('📋 Code gekopieerd!');}};
+  _copy(g.code);
+}
+function shareGroupLink(){
+  const g=loadGroups().find(g=>g.id===activeGroupId);
+  if(!g)return;
+  const link=window.location.origin+window.location.pathname+'?join='+g.code;
+  const _copy=t=>{if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>showToast('🔗 Link gekopieerd! Stuur hem naar je klasgenoten.'));else{const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showToast('🔗 Link gekopieerd!');}};
+  // Probeer native share-menu (mobiel)
+  if(navigator.share){navigator.share({title:'Word lid van "'+g.name+'"',text:'Doe mee met mijn Frans-groep!',url:link}).catch(()=>_copy(link));}
+  else _copy(link);
 }
 
 function addGroupPhrase(){} // replaced by showAddGdCard
@@ -2408,24 +2417,37 @@ function joinByCode(){
 function renderGroupSearch(){
   const q=(document.getElementById('groupSearchQ').value||'').trim().toLowerCase();
   const el=document.getElementById('groupSearchResults');if(!el)return;
-  const groups=loadGroups().filter(g=>g.isPublic);
+  const allGroups=loadGroups();
+  const groups=allGroups.filter(g=>g.isPublic);
+  // Sorteer: eerst groepen waar je al lid van bent, dan op ledenaantal
+  groups.sort((a,b)=>{
+    const am=a.members.some(m=>m.id===curId),bm=b.members.some(m=>m.id===curId);
+    if(am!==bm)return am?-1:1;
+    return b.members.length-a.members.length;
+  });
   const filtered=q?groups.filter(g=>g.name.toLowerCase().includes(q)):groups;
   if(!filtered.length){
-    el.innerHTML='<div class="empty"><div class="ei">🔍</div>'+(q?'Geen openbare groepen gevonden.':'Er zijn nog geen openbare groepen.')+'</div>';
+    el.innerHTML='<div class="empty"><div class="ei">👥</div>'+(q?'Geen groepen gevonden met "'+q+'".':'Er zijn nog geen openbare groepen.<br><span style="font-size:12px">Maak een groep aan en zet hem op openbaar.</span>')+'</div>';
     return;
   }
   el.innerHTML='';
   filtered.forEach(g=>{
     const isMember=g.members.some(m=>m.id===curId);
+    const memberAvatars=g.members.slice(0,4).map(m=>m.photo?`<img src="${m.photo}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;border:2px solid #fff;margin-left:-6px">`:`<div style="width:22px;height:22px;border-radius:50%;background:var(--brand);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;border:2px solid #fff;margin-left:-6px;flex-shrink:0">${m.avatar||m.name[0]}</div>`).join('');
     const card=document.createElement('div');card.className='search-result-card';
+    card.style.cssText='display:flex;align-items:center;gap:12px;cursor:pointer';
     card.innerHTML=`
-      <div class="group-icon" style="width:40px;height:40px;border-radius:10px;font-size:20px">${g.icon||'📚'}</div>
-      <div class="search-result-info">
-        <div class="search-result-name">${g.name}</div>
-        <div class="search-result-meta">${g.members.length} lid${g.members.length!==1?'en':''} · ${g.phrases.length} zinnen</div>
+      <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--brand),var(--brand2));font-size:22px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${g.icon||'📚'}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:2px">${_esc(g.name)}${isMember?'<span style="font-size:10px;background:var(--green-p);color:var(--green);padding:1px 7px;border-radius:10px;margin-left:6px">✓ lid</span>':''}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          <div style="display:flex;margin-left:6px">${memberAvatars}</div>
+          <span style="font-size:11px;color:var(--gray)">${g.members.length} lid${g.members.length!==1?'en':''} · ${(g.phrases||[]).length} zinnen</span>
+        </div>
       </div>
-      <button class="btn ${isMember?'btn-brand-o':'btn-brand'} btn-sm" style="width:auto;margin:0" onclick="joinOrOpen('${g.id}')">${isMember?'Openen':'Joinen'}</button>
+      <button class="btn ${isMember?'btn-brand-o':'btn-brand'} btn-sm" style="width:auto;margin:0;flex-shrink:0" onclick="event.stopPropagation();joinOrOpen('${g.id}')">${isMember?'Open':'+ Join'}</button>
     `;
+    card.onclick=()=>joinOrOpen(g.id);
     el.appendChild(card);
   });
 }
@@ -2567,6 +2589,23 @@ function loginAs(id){
   applyLang();
   setTimeout(checkBadges,600);
   initNotifSettings();
+  // Auto-join via ?join=CODE link
+  if(window._pendingJoinCode){
+    const code=window._pendingJoinCode;
+    window._pendingJoinCode=null;
+    setTimeout(()=>_autoJoinGroup(code),400);
+  }
+}
+function _autoJoinGroup(code){
+  const groups=loadGroups();
+  const g=groups.find(g=>g.code===code);
+  if(!g){showToast('❌ Groep niet gevonden (code: '+code+')');return;}
+  if(g.members.some(m=>m.id===curId)){openGroup(g.id);return;}
+  const u=db.users.find(u=>u.id===curId);
+  g.members.push({id:curId,name:u.name,avatar:u.avatar,photo:u.photo||null});
+  saveGroups(groups);
+  showToast('🎉 Welkom bij "'+g.name+'"!');
+  setTimeout(()=>openGroup(g.id),600);
 }
 function updateStats(){
   if(!ud)return;
@@ -5338,6 +5377,10 @@ db=loadDB();
     window.location.replace(window.location.pathname);
     return;
   }
+  // ?join=CODE → sla op voor na login
+  const joinParam=params.get('join');
+  if(joinParam)window._pendingJoinCode=joinParam.toUpperCase();
+
   // Verwijder altijd ?sync= uit de URL zodat de app hem nooit hergebruikt
   const syncParam=params.get('sync');
   if(syncParam&&window.history&&window.history.replaceState){
