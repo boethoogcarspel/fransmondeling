@@ -4293,9 +4293,12 @@ function speak(text){
 }
 
 // ══ SUPABASE ══════════════════════════════════════════════════
+// Standaard Supabase project — werkt automatisch voor alle gebruikers
+const _SB_URL='https://eacvcnxijpnflxuygcmr.supabase.co';
+const _SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVhY3ZjbnhpanBuZmx4dXlnY21yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4NTU0NzIsImV4cCI6MjA5NjQzMTQ3Mn0.fc62jClvO68breetYCraKYMMX14jupg1LxVQhayM-Xo';
 function _sbCfg(){
-  const url=(localStorage.getItem('fr_sb_url')||'').trim().replace(/\/+$/,'');
-  const key=(localStorage.getItem('fr_sb_key')||'').trim();
+  const url=(localStorage.getItem('fr_sb_url')||_SB_URL).trim().replace(/\/+$/,'');
+  const key=(localStorage.getItem('fr_sb_key')||_SB_KEY).trim();
   return url&&key?{url,key}:null;
 }
 function _sbHeaders(cfg,extra={}){
@@ -4383,29 +4386,10 @@ function saveSbConfig(){
 }
 function renderSbStatus(){
   const el=document.getElementById('sbStatus');if(!el)return;
-  const cfg=_sbCfg();
-  const urlInp=document.getElementById('sbUrlInput');
-  const keyInp=document.getElementById('sbKeyInput');
-  if(urlInp)urlInp.value=localStorage.getItem('fr_sb_url')||'';
-  if(keyInp)keyInp.value=localStorage.getItem('fr_sb_key')||'';
-  if(cfg){
-    el.innerHTML=`<div style="background:var(--green-p);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
-      <span style="font-size:16px">🔄</span>
-      <span style="flex:1;font-size:13px;font-weight:700;color:var(--green)">Supabase verbonden ✓</span>
-      <button onclick="if(confirm('Supabase-verbinding verwijderen?')){localStorage.removeItem('fr_sb_url');localStorage.removeItem('fr_sb_key');renderSbStatus();}" style="background:none;border:none;font-size:11px;color:var(--gray);cursor:pointer;font-family:inherit;text-decoration:underline">Wijzigen</button>
-    </div>`;
-  } else {
-    el.innerHTML=`<div style="background:var(--gray-l);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px">
-      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">🔄 Groep-synchronisatie instellen</div>
-      <div style="font-size:12px;color:var(--gray);margin-bottom:10px">Verbind Supabase zodat leden van andere apparaten live zichtbaar zijn. Gratis. <a href="https://supabase.com" target="_blank" style="color:var(--brand)">supabase.com →</a></div>
-      <div class="ig" style="margin-bottom:8px"><label>Project URL</label><input id="sbUrlInput" placeholder="https://xxxx.supabase.co" style="font-size:13px"></div>
-      <div class="ig" style="margin-bottom:10px"><label>Anon/Public key</label><input id="sbKeyInput" placeholder="eyJhbGciOiJIUzI1NiIs..." style="font-size:13px"></div>
-      <div style="display:flex;gap:8px">
-        <button id="sbTestBtn" onclick="saveSbConfig();testSbConnection()" class="btn btn-brand btn-sm" style="margin:0;flex:1">Test verbinding</button>
-        <button onclick="saveSbConfig()" class="btn btn-brand-o btn-sm" style="margin:0;flex:1">Opslaan</button>
-      </div>
-    </div>`;
-  }
+  el.innerHTML=`<div style="background:var(--green-p);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
+    <span style="font-size:16px">🔄</span>
+    <span style="flex:1;font-size:13px;font-weight:700;color:var(--green)">Groepssync actief ✓ — leden van andere apparaten zijn zichtbaar</span>
+  </div>`;
 }
 
 // ══ GROEP HULPFUNCTIES ══════════════════════════════════════
