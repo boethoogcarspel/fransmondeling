@@ -1037,10 +1037,19 @@
 <!-- GROUP SEARCH (placeholder voor stap 3) -->
 <!-- GROUP SEARCH / JOIN -->
 <div class="screen" id="screen-group-search">
-  <div class="info-card" style="margin-bottom:14px;display:flex;align-items:flex-start;gap:10px">
-    <span style="font-size:20px">🔗</span>
-    <span style="font-size:13px;color:var(--gray);line-height:1.5">Vraag je leraar of klasgenoot om de <strong style="color:var(--text)">uitnodigingslink</strong>. Die link opent de groep automatisch — geen code nodig.</span>
+  <!-- Code invoeren -->
+  <div style="background:var(--brand-l);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px">
+    <div style="font-size:13px;font-weight:800;color:var(--brand);margin-bottom:8px">🔑 Groep joinen via code</div>
+    <div style="display:flex;gap:8px">
+      <input id="groupJoinCode" type="text" placeholder="Bijv. 70VIU7"
+        maxlength="8" style="flex:1;padding:10px 13px;border:2px solid var(--brand-l);border-radius:var(--radius-sm);font-size:16px;font-weight:800;letter-spacing:.15em;text-transform:uppercase;font-family:inherit;outline:none;background:#fff;color:var(--text)"
+        oninput="this.value=this.value.toUpperCase()"
+        onkeydown="if(event.key==='Enter')joinByCode()"/>
+      <button onclick="joinByCode()" class="btn btn-brand" style="width:auto;margin:0;padding:10px 18px;font-size:14px">Joinen →</button>
+    </div>
+    <div id="joinCodeErr" style="display:none;font-size:12px;color:var(--red);margin-top:6px"></div>
   </div>
+  <!-- Zoekbalk -->
   <div class="ig"><input id="groupSearchQ" type="text" placeholder="🔍 Zoek openbare groepen…" oninput="renderGroupSearch()"/></div>
   <div id="groupSearchResults"></div>
 </div>
@@ -2443,20 +2452,47 @@ function leaveGroup(){
   showTab('home');
 }
 
-function joinByCode(){
-  const code=(document.getElementById('groupJoinCode').value||'').trim().toUpperCase();
-  if(!code){showToast('Voer een code in.');return;}
+async function joinByCode(){
+  const inp=document.getElementById('groupJoinCode');
+  const errEl=document.getElementById('joinCodeErr');
+  const code=(inp.value||'').trim().toUpperCase();
+  if(errEl)errEl.style.display='none';
+  if(!code){if(errEl){errEl.textContent='Voer een code in.';errEl.style.display='block';}return;}
+
+  // Laadstatus
+  const btn=inp.nextElementSibling;
+  const origTxt=btn.textContent;
+  btn.textContent='⏳';btn.disabled=true;
+
   const groups=loadGroups();
-  const g=groups.find(g=>g.code===code);
+  let g=groups.find(x=>x.code===code);
+
+  // Niet lokaal → probeer Supabase
   if(!g){
-    showToast('❌ Code niet gevonden. Gebruik de volledige uitnodigingslink — een losse code werkt alleen op het apparaat van de maker.');
+    g=await _sbFetchGroup(code);
+    if(g){
+      groups.push(g);
+      saveGroups(groups);
+    }
+  }
+
+  btn.textContent=origTxt;btn.disabled=false;
+
+  if(!g){
+    if(errEl){errEl.textContent='❌ Code niet gevonden. Controleer of je de code goed hebt ingevoerd.';errEl.style.display='block';}
     return;
   }
-  if(g.members.some(m=>m.id===curId)){openGroup(g.id);return;}
+  if(g.members.some(m=>m.id===curId)){
+    showToast('Je bent al lid van "'+g.name+'"!');
+    inp.value='';
+    setTimeout(()=>openGroup(g.id),300);return;
+  }
   const u=db.users.find(u=>u.id===curId);
-  g.members.push({id:curId,name:u.name,avatar:u.avatar,photo:u.photo||null});
+  const newMember={id:curId,name:u.name,avatar:u.avatar||'',photo:u.photo||null};
+  g.members.push(newMember);
   saveGroups(groups);
-  document.getElementById('groupJoinCode').value='';
+  await _sbSyncGroup(g);
+  inp.value='';
   showToast('🎉 Welkom bij "'+g.name+'"!');
   setTimeout(()=>openGroup(g.id),400);
 }
@@ -3142,7 +3178,7 @@ function showAddGdCard(){
     const groups2=loadGroups();const g2=groups2.find(g=>g.id===activeGroupId);if(!g2)return;
     const u=db.users.find(u=>u.id===curId);
     g2.phrases.push({id:'p'+Date.now(),fr,nl,addedBy:curId,addedByName:u?u.name:'?'});
-    saveGroups(groups2);card.remove();renderGroupDetail();
+    saveGroups(groups2);_sbSyncGroup(g2);card.remove();renderGroupDetail();
   });
   btn.insertAdjacentElement('beforebegin',card);
   card.querySelector('.sg-nl').focus();
