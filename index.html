@@ -1080,9 +1080,14 @@
   <p style="font-size:11px;color:var(--gray);margin-bottom:14px">Stuur de link naar klasgenoten — ze joinen automatisch na het inloggen.</p>
 
   <!-- Leden -->
-  <div class="sec-hdr"><span class="sec">Leden</span><span id="gdMemberCount" style="font-size:11px;color:var(--gray)"></span></div>
-  <div id="gdMembers"></div>
-  <button class="btn btn-gray btn-sm" id="gdLeaveBtn" onclick="leaveGroup()" style="margin-top:10px;margin-bottom:14px">🚪 Groep verlaten</button>
+  <div class="sec-hdr"><span class="sec">Leden</span></div>
+  <button id="gdShowMembersBtn" onclick="toggleGroupMembers()" style="width:100%;padding:10px 14px;border:2px solid var(--gray-b);background:var(--gray-l);border-radius:var(--radius-sm);font-size:13px;font-weight:700;color:var(--text);cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    <span id="gdMemberCount">👥 Leden tonen</span>
+    <span id="gdMembersChevron" style="font-size:12px;color:var(--gray)">▼</span>
+  </button>
+  <div id="gdMembers" style="display:none"></div>
+  <p id="gdMembersNote" style="display:none;font-size:11px;color:var(--gray);margin-bottom:8px">💡 Leden die via een andere link hebben gejoind op een ander apparaat zijn hier niet zichtbaar — dat is een beperking van de app zonder server.</p>
+  <button class="btn btn-gray btn-sm" id="gdLeaveBtn" onclick="leaveGroup()" style="margin-top:6px;margin-bottom:14px">🚪 Groep verlaten</button>
 
   <!-- Zinnen -->
   <div class="sec-hdr"><span class="sec">Zinnen</span><span id="gdPhraseCount" style="font-size:11px;color:var(--gray)"></span></div>
@@ -2269,6 +2274,16 @@ function createGroup(){
   openGroup(g.id);
 }
 
+function toggleGroupMembers(){
+  const el=document.getElementById('gdMembers');
+  const chev=document.getElementById('gdMembersChevron');
+  const note=document.getElementById('gdMembersNote');
+  if(!el)return;
+  const open=el.style.display==='none';
+  el.style.display=open?'block':'none';
+  if(chev)chev.textContent=open?'▲':'▼';
+  if(note)note.style.display=open?'block':'none';
+}
 function openGroup(id){
   activeGroupId=id;
   const g=loadGroups().find(g=>g.id===id);
@@ -2292,10 +2307,13 @@ function renderGroupDetail(){
   const toggle=document.getElementById('gdPublicToggle');
   if(toggle)toggle.checked=g.isPublic;
 
-  // Leden
+  // Leden — knop bijwerken, lijst standaard verborgen
   const membersEl=document.getElementById('gdMembers');
   const memberCountEl=document.getElementById('gdMemberCount');
-  if(memberCountEl)memberCountEl.textContent=g.members.length+' lid'+(g.members.length!==1?'en':'');
+  if(memberCountEl)memberCountEl.textContent='👥 Leden tonen ('+g.members.length+')';
+  if(membersEl)membersEl.style.display='none';
+  const chev=document.getElementById('gdMembersChevron');if(chev)chev.textContent='▼';
+  const note=document.getElementById('gdMembersNote');if(note)note.style.display='none';
   if(membersEl){
     membersEl.innerHTML='';
     g.members.forEach(m=>{
