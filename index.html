@@ -1402,6 +1402,8 @@
   <div id="profileSyncCode" style="margin-bottom:10px"></div>
   <button class="btn btn-brand-o" onclick="showQrModal()" style="margin-bottom:9px">📱 Toon QR-code / sync code</button>
   <div id="chatKeyStatus" style="margin-bottom:4px"></div>
+  <!-- SUPABASE CONFIG -->
+  <div id="sbStatus" style="margin-bottom:4px"></div>
   <div id="hiddenCatsSection" style="display:none">
     <div class="sec">Verborgen kopjes</div>
     <p style="font-size:12px;color:var(--gray);margin-bottom:10px">Tik op ↩ Herstel om een kopje weer zichtbaar te maken bij de oefeningen.</p>
@@ -2268,6 +2270,7 @@ function createGroup(){
     code:randCode()
   };
   groups.push(g);saveGroups(groups);
+  _sbSyncGroup(g); // sync naar Supabase
   document.getElementById('gcName').value='';
   document.getElementById('gcIcon').value='';
   document.getElementById('gcIconPreview').textContent='📚';
@@ -2300,6 +2303,22 @@ function renderGroupDetail(){
   document.getElementById('gdIcon').textContent=g.icon||'📚';
   const metaEl=document.getElementById('gdMeta');
   if(metaEl)metaEl.textContent=`${g.members.length} lid${g.members.length!==1?'en':''} · ${g.phrases.length} zin${g.phrases.length!==1?'nen':''}`;
+
+  // Live ledentelling ophalen van Supabase op de achtergrond
+  if(_sbCfg()){
+    _sbFetchGroup(g.code).then(sbG=>{
+      if(!sbG)return;
+      // Update lokale kopie met verse Supabase data
+      const groups2=loadGroups();
+      const idx=groups2.findIndex(x=>x.code===g.code);
+      if(idx>=0){groups2[idx].members=sbG.members;saveGroups(groups2);}
+      // Herrender alleen de leden-knop
+      const btn=document.getElementById('gdMemberCount');
+      if(btn)btn.textContent='👥 Leden tonen ('+sbG.members.length+')';
+      const meta2=document.getElementById('gdMeta');
+      if(meta2)meta2.textContent=`${sbG.members.length} lid${sbG.members.length!==1?'en':''} · ${g.phrases.length} zin${g.phrases.length!==1?'nen':''}`;
+    });
+  }
 
   // Toggle zichtbaar voor eigenaar
   const toggleRow=document.getElementById('gdToggleRow');
@@ -2375,6 +2394,7 @@ function toggleGroupPublic(){
   if(!g||g.ownerId!==curId)return;
   g.isPublic=document.getElementById('gdPublicToggle').checked;
   saveGroups(groups);
+  _sbSyncGroup(g);
 }
 
 function copyGroupCode(){
@@ -2403,6 +2423,7 @@ function deleteGroupPhrase(pid){
   if(!g)return;
   g.phrases=g.phrases.filter(p=>p.id!==pid);
   saveGroups(groups);
+  _sbSyncGroup(g);
   renderGroupDetail();
 }
 
@@ -2440,11 +2461,22 @@ function joinByCode(){
   setTimeout(()=>openGroup(g.id),400);
 }
 
-function renderGroupSearch(){
+async function renderGroupSearch(){
   const q=(document.getElementById('groupSearchQ').value||'').trim().toLowerCase();
   const el=document.getElementById('groupSearchResults');if(!el)return;
-  const allGroups=loadGroups();
-  const groups=allGroups.filter(g=>g.isPublic);
+  el.innerHTML='<div style="text-align:center;padding:18px;color:var(--gray);font-size:13px">⏳ Laden…</div>';
+
+  // Haal openbare groepen op van Supabase + lokaal
+  const localGroups=loadGroups().filter(g=>g.isPublic);
+  const sbGroups=await _sbFetchPublic();
+  // Merge: Supabase heeft prioriteit (verse data), lokale groepen als aanvulling
+  const merged=new Map();
+  localGroups.forEach(g=>merged.set(g.code,g));
+  sbGroups.forEach(g=>{
+    const local=loadGroups().find(x=>x.code===g.code);
+    merged.set(g.code,local?{...local,members:g.members}:g);
+  });
+  const groups=[...merged.values()];
   // Sorteer: eerst groepen waar je al lid van bent, dan op ledenaantal
   groups.sort((a,b)=>{
     const am=a.members.some(m=>m.id===curId),bm=b.members.some(m=>m.id===curId);
@@ -2485,6 +2517,7 @@ function joinOrOpen(id){
     const u=db.users.find(u=>u.id===curId);
     g.members.push({id:curId,name:u.name,avatar:u.avatar,photo:u.photo||null});
     saveGroups(groups);
+    _sbSyncGroup(g); // sync naar Supabase
   }
   openGroup(id);
 }
@@ -2622,10 +2655,22 @@ function loginAs(id){
     setTimeout(()=>_autoJoinGroup(code),400);
   }
 }
-function _autoJoinGroup(code){
+async function _autoJoinGroup(code){
   const groups=loadGroups();
   let g=groups.find(g=>g.code===code);
-  // Groep bestaat niet lokaal → probeer aan te maken vanuit gdata in de link
+
+  // 1. Niet lokaal → probeer Supabase (cross-device join!)
+  if(!g){
+    const sbG=await _sbFetchGroup(code);
+    if(sbG){
+      // Groep gevonden in Supabase — sla op lokaal
+      g=sbG;
+      groups.push(g);
+      saveGroups(groups);
+    }
+  }
+
+  // 2. Niet in Supabase → probeer gdata uit de URL
   if(!g&&window._pendingJoinData){
     try{
       const data=JSON.parse(decodeURIComponent(escape(atob(window._pendingJoinData))));
@@ -2635,11 +2680,16 @@ function _autoJoinGroup(code){
       saveGroups(groups);
     }catch(e){showToast('❌ Ongeldige uitnodigingslink');return;}
   }
-  if(!g){showToast('❌ Groep niet gevonden. Vraag om de volledige uitnodigingslink (niet alleen de code).');return;}
+
+  if(!g){showToast('❌ Groep niet gevonden. Vraag om de uitnodigingslink of zet Supabase in.');return;}
   if(g.members.some(m=>m.id===curId)){showToast('Je zit al in "'+g.name+'"!');setTimeout(()=>openGroup(g.id),400);return;}
+
   const u=db.users.find(u=>u.id===curId);
-  g.members.push({id:curId,name:u.name,avatar:u.avatar,photo:u.photo||null});
+  const newMember={id:curId,name:u.name,avatar:u.avatar||'',photo:u.photo||null};
+  g.members.push(newMember);
   saveGroups(groups);
+  // Sync lid-toevoeging naar Supabase zodat anderen het zien
+  await _sbSyncGroup(g);
   showToast('🎉 Welkom bij "'+g.name+'"!');
   setTimeout(()=>openGroup(g.id),600);
 }
@@ -3515,6 +3565,7 @@ function renderProfile(){
       : '';
   }
   renderProfileGoalBtns();
+  renderSbStatus();
   renderBadges();
   initNotifSettings();
   // Slider initialiseren op opgeslagen snelheid
@@ -4203,6 +4254,122 @@ function speak(text){
     return;
   }
   window.speechSynthesis.speak(u);
+}
+
+// ══ SUPABASE ══════════════════════════════════════════════════
+function _sbCfg(){
+  const url=(localStorage.getItem('fr_sb_url')||'').trim().replace(/\/+$/,'');
+  const key=(localStorage.getItem('fr_sb_key')||'').trim();
+  return url&&key?{url,key}:null;
+}
+function _sbHeaders(cfg,extra={}){
+  return {'apikey':cfg.key,'Authorization':'Bearer '+cfg.key,'Content-Type':'application/json',...extra};
+}
+async function _sbGet(path,query=''){
+  const cfg=_sbCfg();if(!cfg)return null;
+  try{
+    const r=await fetch(cfg.url+'/rest/v1/fr_groups?'+query,{headers:_sbHeaders(cfg)});
+    if(!r.ok)return null;return await r.json();
+  }catch(e){return null;}
+}
+async function _sbUpsert(row){
+  const cfg=_sbCfg();if(!cfg)return false;
+  try{
+    const r=await fetch(cfg.url+'/rest/v1/fr_groups',{
+      method:'POST',
+      headers:_sbHeaders(cfg,{'Prefer':'resolution=merge-duplicates,return=minimal'}),
+      body:JSON.stringify(row)
+    });
+    return r.ok;
+  }catch(e){return false;}
+}
+async function _sbPatch(code,patch){
+  const cfg=_sbCfg();if(!cfg)return false;
+  try{
+    const r=await fetch(cfg.url+'/rest/v1/fr_groups?code=eq.'+encodeURIComponent(code),{
+      method:'PATCH',
+      headers:_sbHeaders(cfg,{'Prefer':'return=minimal'}),
+      body:JSON.stringify(patch)
+    });
+    return r.ok;
+  }catch(e){return false;}
+}
+// Groepobject → Supabase-rij
+function _toSbRow(g){
+  return {code:g.code,name:g.name,icon:g.icon||'📚',is_public:g.isPublic||false,
+    members:(g.members||[]).map(m=>({id:m.id,name:m.name,avatar:m.avatar||''})),
+    phrases:(g.phrases||[]).map(p=>({id:p.id,fr:p.fr,nl:p.nl||'',addedByName:p.addedByName||''}))};
+}
+// Supabase-rij → lokaal groepobject
+function _fromSbRow(row,localG=null){
+  return {
+    id:localG?localG.id:('sb_'+row.code),
+    name:row.name,icon:row.icon||'📚',code:row.code,
+    ownerId:localG?localG.ownerId:null,
+    isPublic:row.is_public,
+    members:(row.members||[]),
+    phrases:(row.phrases||[]).map(p=>({...p,addedBy:p.addedBy||null,addedByName:p.addedByName||'?'}))
+  };
+}
+// Sync één groep naar Supabase
+async function _sbSyncGroup(g){await _sbUpsert(_toSbRow(g));}
+// Haal groep op van Supabase via code
+async function _sbFetchGroup(code){
+  const d=await _sbGet('',`code=eq.${encodeURIComponent(code)}&select=*`);
+  return d&&d[0]?_fromSbRow(d[0]):null;
+}
+// Haal alle openbare groepen op
+async function _sbFetchPublic(){
+  const d=await _sbGet('','is_public=eq.true&select=*&order=updated_at.desc&limit=100');
+  return d?d.map(r=>_fromSbRow(r)):[];
+}
+// Test verbinding
+async function testSbConnection(){
+  const cfg=_sbCfg();
+  if(!cfg){showToast('❌ Vul eerst URL en sleutel in.');return;}
+  const btn=document.getElementById('sbTestBtn');
+  if(btn){btn.textContent='⏳';btn.disabled=true;}
+  try{
+    const r=await fetch(cfg.url+'/rest/v1/fr_groups?limit=1',{headers:_sbHeaders(cfg)});
+    if(r.ok||r.status===406){showToast('✅ Verbinding gelukt!');renderSbStatus();}
+    else if(r.status===401){showToast('❌ Sleutel klopt niet.');}
+    else if(r.status===404){showToast('❌ Tabel fr_groups bestaat nog niet — voer de SQL uit.');}
+    else{showToast('❌ Fout: '+r.status);}
+  }catch(e){showToast('❌ Kon Supabase niet bereiken: '+e.message);}
+  if(btn){btn.textContent='Test';btn.disabled=false;}
+}
+function saveSbConfig(){
+  const url=(document.getElementById('sbUrlInput').value||'').trim();
+  const key=(document.getElementById('sbKeyInput').value||'').trim();
+  if(url)localStorage.setItem('fr_sb_url',url); else localStorage.removeItem('fr_sb_url');
+  if(key)localStorage.setItem('fr_sb_key',key); else localStorage.removeItem('fr_sb_key');
+  renderSbStatus();
+}
+function renderSbStatus(){
+  const el=document.getElementById('sbStatus');if(!el)return;
+  const cfg=_sbCfg();
+  const urlInp=document.getElementById('sbUrlInput');
+  const keyInp=document.getElementById('sbKeyInput');
+  if(urlInp)urlInp.value=localStorage.getItem('fr_sb_url')||'';
+  if(keyInp)keyInp.value=localStorage.getItem('fr_sb_key')||'';
+  if(cfg){
+    el.innerHTML=`<div style="background:var(--green-p);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:16px">🔄</span>
+      <span style="flex:1;font-size:13px;font-weight:700;color:var(--green)">Supabase verbonden ✓</span>
+      <button onclick="if(confirm('Supabase-verbinding verwijderen?')){localStorage.removeItem('fr_sb_url');localStorage.removeItem('fr_sb_key');renderSbStatus();}" style="background:none;border:none;font-size:11px;color:var(--gray);cursor:pointer;font-family:inherit;text-decoration:underline">Wijzigen</button>
+    </div>`;
+  } else {
+    el.innerHTML=`<div style="background:var(--gray-l);border-radius:var(--radius-sm);padding:14px;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">🔄 Groep-synchronisatie instellen</div>
+      <div style="font-size:12px;color:var(--gray);margin-bottom:10px">Verbind Supabase zodat leden van andere apparaten live zichtbaar zijn. Gratis. <a href="https://supabase.com" target="_blank" style="color:var(--brand)">supabase.com →</a></div>
+      <div class="ig" style="margin-bottom:8px"><label>Project URL</label><input id="sbUrlInput" placeholder="https://xxxx.supabase.co" style="font-size:13px"></div>
+      <div class="ig" style="margin-bottom:10px"><label>Anon/Public key</label><input id="sbKeyInput" placeholder="eyJhbGciOiJIUzI1NiIs..." style="font-size:13px"></div>
+      <div style="display:flex;gap:8px">
+        <button id="sbTestBtn" onclick="saveSbConfig();testSbConnection()" class="btn btn-brand btn-sm" style="margin:0;flex:1">Test verbinding</button>
+        <button onclick="saveSbConfig()" class="btn btn-brand-o btn-sm" style="margin:0;flex:1">Opslaan</button>
+      </div>
+    </div>`;
+  }
 }
 
 // ══ GROEP HULPFUNCTIES ══════════════════════════════════════
