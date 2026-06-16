@@ -4077,17 +4077,36 @@ function checkSpeech(warnId,micId){
   document.getElementById(warnId).style.display=has?'none':'block';
   document.getElementById(micId).style.display=has?'block':'none';
 }
+let _recSilenceTimer=null;
 function startRec(lang){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return;
-  recog=new SR();recog.lang=lang;recog.interimResults=false;recog.maxAlternatives=1;
+  recog=new SR();recog.lang=lang;recog.continuous=true;recog.interimResults=true;recog.maxAlternatives=1;
   isRec=true;
+  let _finalTranscript='';
   const mic=document.querySelector('.screen.active .mic-btn');
   const lbl=document.querySelector('.screen.active .mic-lbl');
   if(mic)mic.classList.add('rec');
   if(lbl)lbl.textContent='Aan het luisteren… spreek nu!';
-  recog.onresult=e=>{const r=Array.from(e.results[0]).map(x=>x.transcript.toLowerCase().trim());if(recCallback)recCallback(r);};
-  recog.onerror=e=>{stopRec(false);const msgs={'not-allowed':'❌ Microfoon geweigerd.','no-speech':'🔇 Geen spraak — probeer opnieuw.'};if(lbl)lbl.textContent=msgs[e.error]||'⚠️ Fout: '+e.error;};
-  recog.onend=()=>{isRec=false;document.querySelectorAll('.mic-btn').forEach(b=>b.classList.remove('rec'));};
+  recog.onresult=e=>{
+    _finalTranscript='';
+    for(let i=0;i<e.results.length;i++){if(e.results[i].isFinal)_finalTranscript+=e.results[i][0].transcript+' ';}
+    // Reset silence timer elke keer als er spraak binnenkomt
+    clearTimeout(_recSilenceTimer);
+    if(_finalTranscript.trim()){
+      _recSilenceTimer=setTimeout(()=>{
+        try{recog.stop();}catch(e){}
+        if(recCallback&&_finalTranscript.trim()){recCallback([_finalTranscript.trim().toLowerCase()]);}
+      },1800); // 1.8 seconde stilte → verwerken
+    }
+  };
+  recog.onerror=e=>{clearTimeout(_recSilenceTimer);stopRec(false);const msgs={'not-allowed':'❌ Microfoon geweigerd.','no-speech':'🔇 Geen spraak — probeer opnieuw.'};if(lbl)lbl.textContent=msgs[e.error]||'⚠️ Fout: '+e.error;};
+  recog.onend=()=>{
+    clearTimeout(_recSilenceTimer);
+    isRec=false;
+    document.querySelectorAll('.mic-btn').forEach(b=>b.classList.remove('rec'));
+    // Als er nog een transcript was dat niet verwerkt is (bijv. browser stopte zelf)
+    if(_finalTranscript.trim()&&recCallback){recCallback([_finalTranscript.trim().toLowerCase()]);_finalTranscript='';}
+  };
   recog.start();
 }
 function stopRec(manual){
